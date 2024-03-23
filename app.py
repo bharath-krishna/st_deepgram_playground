@@ -2,7 +2,6 @@
 import os
 import threading
 import traceback
-from mimetypes import guess_type
 
 import httpx
 import streamlit as st
@@ -18,7 +17,7 @@ from st_audiorec import st_audiorec
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 # Configs
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 st.set_page_config(
     page_title="Deepgram API Playground",
@@ -484,7 +483,6 @@ elif audio_format == "Prerecorded":
 
     else:
         st.session_state["audio"] = "assets/sample_file.wav"
-        st.session_state["mimetype"] = guess_type(st.session_state["audio"])[0]
 
     if st.session_state["audio"] and audio_source != "️🗣 Record audio️":
         if audio_source == "🌐 Load from URL" and audio_yt == "Youtube link":
@@ -518,51 +516,37 @@ if audio_format == "Prerecorded":
         if audio_yt == "Audio URL":
             source = {"url": url}
         else:
-            source = {
-                "buffer": open(st.session_state["audio"], "rb"),
-                "mimetype": "audio/mpeg",
-            }
+            source = {"buffer": open(st.session_state["audio"], "rb")}
     elif audio_source in (["⬆️ Upload audio file", "️🗣 Record audio️"]):
         # file is uploaded/recorded
         source = {
             "buffer": st.session_state["audio"],
-            "mimetype": (
-                st.session_state["mimetype"]
-                if audio_source == "⬆️ Upload audio file"
-                else "audio/wav"
-            ),
-        }
-        display_source = {
-            "buffer": "AUDIO_FILE",
-            "mimetype": (
-                st.session_state["mimetype"]
-                if audio_source == "⬆️ Upload audio file"
-                else "audio/wav"
-            ),
         }
     else:
         # file is local
-        source = {
-            "buffer": open(st.session_state["audio"], "rb").read(),
-            "mimetype": st.session_state["mimetype"],
-        }
+        source = {"buffer": open(st.session_state["audio"], "rb").read()}
 
 # TODO: Update for v3
-#     # Write code
-#     with st.expander("🧑‍💻 Code", expanded=False):
+# Write code
+#     with st.expander("🧑‍💻 Request preview", expanded=False):
 #         st.code(
-#             f"""from deepgram import DeepgramClient, Pre
+# f"""
+# from deepgram import DeepgramClient, PrerecordedOptions
 
-#             deepgram = DeepgramClient()
+# deepgram = DeepgramClient(DEEPGRAM_API_KEY)
 
-#             response = (
-#                 deepgram.listen.prerecorded.v(\"1\")
-#                 .transcribe_file(
-#                     listen.sync_prerecorded(
-#     {source if audio_source not in (["⬆️ Upload audio file", "️🗣 Record audio️"]) else display_source},
-#     {options}
-# )"""
-#         )
+# payload = dict(buffer={source["buffer"] if type(source["buffer"])=="str" else "AUDIO_BUFFER"})
+
+# response = (
+#     deepgram.listen.prerecorded.v("1")
+#     .transcribe_file(
+#         payload,
+#         options,
+#     )
+#     .to_dict()
+# )
+# """
+# )
 # else:
 #     # TODO: Show code for Streaming input
 #     pass
@@ -580,7 +564,7 @@ if st.button(
         else:
             prerecorded(source, options)
     except Exception as e:
-        if str(e) == "The read operation timed out":
+        if str(e).endswith("timed out"):
             st.error(
                 f"""{e}  
                 Please try after some time, or try with a smaller source if the issue persists.""",
